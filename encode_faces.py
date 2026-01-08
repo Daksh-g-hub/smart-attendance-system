@@ -1,17 +1,28 @@
-import face_recognition
 import cv2
 import os
+import numpy as np
 import pickle
 
 DATASET_DIR = "dataset"
-ENCODINGS_FILE = "encodings/face_encodings.pkl"
+MODEL_DIR = "encodings"
+MODEL_PATH = os.path.join(MODEL_DIR, "lbph_model.yml")
+LABEL_MAP_PATH = os.path.join(MODEL_DIR, "label_map.pkl")
 
-os.makedirs("encodings", exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-known_encodings = []
-known_names = []
+face_detector = cv2.CascadeClassifier(
+    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+)
 
-print("[INFO] Encoding faces...")
+recognizer = cv2.face.LBPHFaceRecognizer_create()
+
+faces = []
+labels = []
+label_map = {}
+
+label_id = 0
+
+print("[INFO] Training LBPH model...")
 
 for student_folder in os.listdir(DATASET_DIR):
     student_path = os.path.join(DATASET_DIR, student_folder)
@@ -19,27 +30,28 @@ for student_folder in os.listdir(DATASET_DIR):
     if not os.path.isdir(student_path):
         continue
 
-    for image_name in os.listdir(student_path):
-        image_path = os.path.join(student_path, image_name)
+    label_map[label_id] = student_folder
 
-        image = cv2.imread(image_path)
-        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    for img_name in os.listdir(student_path):
+        img_path = os.path.join(student_path, img_name)
+        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
-        boxes = face_recognition.face_locations(rgb, model="hog")
-        encodings = face_recognition.face_encodings(rgb, boxes)
+        if img is None:
+            continue
 
-        for encoding in encodings:
-            known_encodings.append(encoding)
-            known_names.append(student_folder)
+        detected = face_detector.detectMultiScale(img, 1.3, 5)
 
-print(f"[INFO] Total faces encoded: {len(known_encodings)}")
+        for (x, y, w, h) in detected:
+            face = img[y:y+h, x:x+w]
+            faces.append(face)
+            labels.append(label_id)
 
-data = {
-    "encodings": known_encodings,
-    "names": known_names
-}
+    label_id += 1
 
-with open(ENCODINGS_FILE, "wb") as f:
-    pickle.dump(data, f)
+recognizer.train(faces, np.array(labels))
+recognizer.save(MODEL_PATH)
 
-print("✅ Face encodings saved successfully.")
+with open(LABEL_MAP_PATH, "wb") as f:
+    pickle.dump(label_map, f)
+
+print("✅ LBPH model trained successfully.")
