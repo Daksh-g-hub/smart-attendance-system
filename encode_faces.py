@@ -24,7 +24,7 @@ label_id = 0
 
 print("[INFO] Training LBPH model...")
 
-for student_folder in os.listdir(DATASET_DIR):
+for student_folder in sorted(os.listdir(DATASET_DIR)):
     student_path = os.path.join(DATASET_DIR, student_folder)
 
     if not os.path.isdir(student_path):
@@ -32,7 +32,7 @@ for student_folder in os.listdir(DATASET_DIR):
 
     label_map[label_id] = student_folder
 
-    for img_name in os.listdir(student_path):
+    for img_name in sorted(os.listdir(student_path)):
         img_path = os.path.join(student_path, img_name)
         img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
